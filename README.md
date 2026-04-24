@@ -1,185 +1,199 @@
 # 📦 Inventory Management System
 
-> A clean, well-structured RESTful API built with **ASP.NET Core 9** following **Clean Architecture** principles. This system manages product inventory with image upload support, caching, structured logging, and global error handling.
+A production-ready **RESTful API** built with **.NET 9** and **Clean Architecture**, designed for managing product inventory with file upload support, in-memory caching, structured logging, and a global error handling pipeline.
 
 ---
 
-## 🚀 GitHub Repository Description
+## 🚀 Features
 
-> **Inventory Management API** — A .NET 9 Web API built with Clean Architecture (Domain → Application → Infrastructure → API). Features product CRUD, image upload, in-memory caching, Serilog logging, and global error handling. Uses Entity Framework Core with SQL Server.
-
----
-
-## ✨ Features
-
-- 📋 **Product Management** — Create products and retrieve them with pagination and search
-- 🖼️ **Image Upload** — Upload product images (JPG/PNG, max 2MB) stored to `wwwroot/images/`
-- 🔍 **Search & Pagination** — Filter products by name with server-side pagination
-- ⚡ **In-Memory Caching** — Product list responses cached for 5 minutes to reduce DB hits
-- 📝 **Structured Logging** — Serilog logs to both Console and rolling daily log files
-- 🛡️ **Global Error Handling** — Centralized middleware catches unhandled exceptions and returns clean JSON error responses
-- 📚 **Swagger / OpenAPI** — Interactive API documentation available in Development mode
-- 🗄️ **SQL Server + EF Core** — Code-first database with EF Core Migrations
+- ✅ **Clean Architecture** — strict separation of concerns across four distinct layers
+- ✅ **CQRS Pattern** — Commands and Queries clearly separated in the Application layer
+- ✅ **Product Image Upload** — file type & size validation with local disk storage
+- ✅ **Paginated Product Listing** — server-side pagination and keyword search
+- ✅ **In-Memory Caching** — `IMemoryCache` via `CacheService` (5-minute TTL)
+- ✅ **Global Error Handling** — custom `ErrorHandlingMiddleware` returning structured JSON errors
+- ✅ **Structured Logging** — Serilog writing to Console and daily rolling log files
+- ✅ **Swagger / OpenAPI** — interactive API documentation in the Development environment
+- ✅ **Entity Framework Core 9** — SQL Server provider with EF Migrations
 
 ---
 
 ## 🏛️ Architecture
 
-This project follows the **Clean Architecture** pattern, separating concerns across four distinct layers. Each layer depends only on the layers **inward** — never outward.
+This project follows **Clean Architecture** principles. Dependencies flow strictly inward — outer layers depend on inner layers, never the reverse.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     API Layer                           │
-│  Controllers · Middleware · Program.cs                  │
-├─────────────────────────────────────────────────────────┤
-│                 Application Layer                       │
-│  Features (Commands/Queries/Handlers) · DTOs            │
-│  Interfaces · Behaviors                                 │
-├─────────────────────────────────────────────────────────┤
-│               Infrastructure Layer                      │
-│  Persistence (EF Core) · Services (Cache, File)         │
-│  Logging (Serilog) · Migrations                         │
-├─────────────────────────────────────────────────────────┤
-│                  Domain Layer                           │
-│  Entities · Common (BaseEntity) · Exceptions            │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                  API  (Presentation)                 │
+│         Controllers · Middleware · Program.cs        │
+├──────────────────────────────────────────────────────┤
+│               Application  (Use Cases)               │
+│    Features (Commands/Queries/Handlers) · DTOs       │
+│            Interfaces · Behaviors                    │
+├──────────────────────────────────────────────────────┤
+│                  Domain  (Core)                      │
+│          Entities · BaseEntity · Exceptions          │
+├──────────────────────────────────────────────────────┤
+│            Infrastructure  (Data & Services)         │
+│    EF Core · Repositories · CacheService             │
+│         FileStorageService · Serilog · Migrations    │
+└──────────────────────────────────────────────────────┘
 ```
 
-### Layer Responsibilities
+---
 
-| Layer | Responsibility |
-|---|---|
-| **Domain** | Core business entities and rules. Zero external dependencies. |
-| **Application** | Business use-cases (features), interfaces, and DTOs. Depends only on Domain. |
-| **Infrastructure** | Implements interfaces: EF Core DB, caching, file storage, and logging. |
-| **API** | HTTP entry-point. Controllers, Middleware, DI wiring in `Program.cs`. |
+## 🗂️ Project Structure
+
+```
+InventoryManagement/
+├── InventoryManagement.sln
+│
+├── InventoryManagement.API/                  # ASP.NET Core Web API
+│   ├── Controllers/
+│   │   └── ProductsController.cs            # Product endpoints (POST, GET)
+│   ├── Middleware/
+│   │   └── ErrorHandlingMiddleware.cs       # Global exception handler
+│   ├── Logs/                                # Daily Serilog rolling log files
+│   ├── appsettings.json                     # DB connection string & logging config
+│   └── Program.cs                           # DI registration & middleware pipeline
+│
+├── InventoryManagement.Application/         # Business Logic / Use Cases
+│   ├── Behaviors/
+│   │   └── Pagination.cs                   # Pagination helper
+│   ├── DTOs/
+│   │   ├── ProductDto.cs                   # Read model returned to client
+│   │   └── ProductCreateRequest.cs         # Multipart/form-data input model
+│   ├── Exceptions/                         # Application-level custom exceptions
+│   ├── Features/
+│   │   └── Products/
+│   │       ├── Commands/
+│   │       │   └── CreateProductCommand.cs # Create product command model
+│   │       ├── Queries/
+│   │       │   └── GetProductsQuery.cs     # Paginated get query model
+│   │       └── Handlers/
+│   │           └── ProductHandlers.cs      # Business logic for create & list
+│   └── Interfaces/
+│       ├── IProductRepository.cs           # Repository abstraction
+│       ├── ICacheService.cs                # Cache abstraction
+│       └── IFileStorageService.cs          # File storage abstraction
+│
+├── InventoryManagement.Domain/              # Core Domain (no dependencies)
+│   ├── Common/
+│   │   └── BaseEntity.cs                   # Id + CreatedAt base class
+│   ├── Entities/
+│   │   └── Product.cs                      # Product domain entity
+│   └── Exceptions/                         # Domain-level custom exceptions
+│
+└── InventoryManagement.Infrastructure/     # Data & External Services
+    ├── Logging/
+    │   └── SerilogConfig.cs                # Serilog bootstrap configuration
+    ├── Migrations/
+    │   └── 20260102111341_InitialCreate.*  # EF Core initial migration
+    ├── Persistence/
+    │   ├── AppDbContext.cs                 # EF Core DbContext
+    │   └── ProductRepository.cs           # IProductRepository implementation
+    └── Services/
+        ├── CacheService.cs                 # IMemoryCache implementation
+        └── FileStorageService.cs           # Local disk file storage implementation
+```
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Technology | Purpose |
+| Category | Technology |
 |---|---|
-| **.NET 9 / ASP.NET Core 9** | Web framework |
-| **Entity Framework Core** | ORM / Code-first DB access |
-| **SQL Server (LocalDB / SQLEXPRESS)** | Relational database |
-| **Serilog** | Structured logging (Console + File) |
-| **IMemoryCache** | In-process caching |
-| **Swagger / Swashbuckle** | API documentation |
-| **Clean Architecture** | Project structure / design pattern |
+| Runtime | .NET 9 |
+| Framework | ASP.NET Core 9 |
+| ORM | Entity Framework Core 9 |
+| Database | SQL Server |
+| Logging | Serilog (Console + Rolling File) |
+| Caching | `Microsoft.Extensions.Caching.Memory` |
+| API Docs | Swashbuckle / Swagger (OpenAPI v1) |
+| Pattern | Clean Architecture + CQRS |
 
 ---
 
-## 📁 Project Structure
+## 📐 Domain Model
 
-```
-InventoryManagement/
-│
-├── InventoryManagement.sln
-│
-├── InventoryManagement.Domain/              # 🏛️ Domain Layer (innermost)
-│   ├── Common/
-│   │   └── BaseEntity.cs                   # Abstract base with Id & CreatedAt
-│   ├── Entities/
-│   │   └── Product.cs                      # Product domain entity
-│   └── Exceptions/                         # Custom domain exceptions
-│
-├── InventoryManagement.Application/        # ⚙️ Application Layer
-│   ├── DTOs/
-│   │   ├── ProductDto.cs                   # Response DTO
-│   │   └── ProductCreateRequest.cs         # Request DTO (with image file)
-│   ├── Features/
-│   │   └── Products/
-│   │       ├── Commands/
-│   │       │   └── CreateProductCommand.cs # Command model
-│   │       ├── Queries/
-│   │       │   └── GetProductsQuery.cs     # Query model (page, pageSize, search)
-│   │       └── Handlers/
-│   │           └── ProductHandlers.cs      # Business logic handler
-│   ├── Interfaces/
-│   │   ├── IProductRepository.cs           # Repository contract
-│   │   ├── ICacheService.cs                # Cache service contract
-│   │   └── IFileStorageService.cs          # File storage contract
-│   └── Behaviors/                          # Pipeline behaviors (e.g., validation)
-│
-├── InventoryManagement.Infrastructure/     # 🔧 Infrastructure Layer
-│   ├── Persistence/
-│   │   ├── AppDbContext.cs                 # EF Core DbContext
-│   │   └── ProductRepository.cs           # IProductRepository implementation
-│   ├── Services/
-│   │   ├── CacheService.cs                # IMemoryCache implementation
-│   │   └── FileStorageService.cs          # Local file storage implementation
-│   ├── Logging/
-│   │   └── SerilogConfig.cs               # Serilog bootstrap configuration
-│   └── Migrations/                        # EF Core generated migrations
-│
-└── InventoryManagement.API/               # 🌐 API Layer (outermost)
-    ├── Controllers/
-    │   └── ProductsController.cs           # Products REST controller
-    ├── Middleware/
-    │   └── ErrorHandlingMiddleware.cs      # Global exception handler
-    ├── Logs/                               # Runtime log files (daily rolling)
-    ├── Program.cs                          # App bootstrap & DI setup
-    └── appsettings.json                    # Configuration (connection strings, etc.)
-```
+### `Product` entity
 
----
-
-## 🗄️ Database Schema
-
-### `Products` Table
-
-| Column | Type | Description |
+| Property | Type | Description |
 |---|---|---|
-| `Id` | `int` (PK) | Auto-increment primary key |
-| `Name` | `nvarchar` | Product name |
-| `Price` | `decimal` | Product price |
-| `Stock` | `int` | Quantity in stock |
-| `ImageUrl` | `nvarchar` (nullable) | Relative URL to uploaded image |
-| `CreatedAt` | `datetime2` | Record creation timestamp (UTC) |
+| `Id` | `int` | Auto-generated primary key _(from BaseEntity)_ |
+| `CreatedAt` | `DateTime` | UTC creation timestamp _(from BaseEntity)_ |
+| `Name` | `string` | Product name (required) |
+| `Price` | `decimal` | Unit price |
+| `Stock` | `int` | Available quantity |
+| `ImageUrl` | `string?` | Relative path to the uploaded image |
 
 ---
 
-## 📡 API Endpoints
+## 🔌 API Endpoints
 
-### Products — `api/products`
+Base URL: `https://localhost:{port}/api`
 
-| Method | Endpoint | Description | Body |
-|---|---|---|---|
-| `POST` | `/api/products` | Create a new product with image | `multipart/form-data` |
-| `GET` | `/api/products/get-all` | Get paginated & searchable product list | Query params |
+### Products
 
-#### POST `/api/products` — Request (multipart/form-data)
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/products` | Create a new product with image upload |
+| `GET` | `/api/products/get-all` | Retrieve all products (paginated, searchable) |
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `Name` | `string` | ✅ | Product name |
-| `Price` | `decimal` | ✅ | Product price |
-| `Stock` | `int` | ✅ | Stock quantity |
-| `Image` | `file` | ✅ | JPG or PNG, max 2MB |
+---
 
-#### GET `/api/products/get-all` — Query Parameters
+### `POST /api/products`
+
+Creates a new product. Accepts `multipart/form-data`.
+
+**Request fields:**
+
+| Field | Type | Validation |
+|---|---|---|
+| `Name` | `string` | Required |
+| `Price` | `decimal` | Required |
+| `Stock` | `int` | Required |
+| `Image` | `IFormFile` | Required · Only `image/jpeg` or `image/png` · Max **2 MB** |
+
+**Success Response `200 OK`:**
+```json
+{
+  "message": "Product created successfully"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` — Image missing, invalid type, or exceeds 2 MB
+- `500 Internal Server Error` — Unhandled exception (returned as JSON)
+
+---
+
+### `GET /api/products/get-all`
+
+Returns a paginated list of products.
+
+**Query Parameters:**
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `page` | `int` | `1` | Page number |
 | `pageSize` | `int` | `10` | Items per page |
-| `search` | `string` | `null` | Filter by product name |
+| `search` | `string?` | — | Filter by product name (case-insensitive contains) |
 
-#### Sample Response — Get Products
-
+**Success Response `200 OK`:**
 ```json
 {
-  "items": [
+  "totalCount": 42,
+  "data": [
     {
       "id": 1,
-      "name": "Wireless Mouse",
-      "price": 29.99,
-      "stock": 150,
-      "imageUrl": "/images/a3f1e2c7-mouse.png"
+      "name": "Wireless Keyboard",
+      "price": 49.99,
+      "stock": 120,
+      "imageUrl": "/images/3f2a1b4c-...png",
+      "createdAt": "2026-01-02T11:13:41Z"
     }
-  ],
-  "totalCount": 1
+  ]
 }
 ```
 
@@ -190,29 +204,29 @@ InventoryManagement/
 ### Prerequisites
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- [SQL Server](https://www.microsoft.com/en-us/sql-server/sql-server-downloads) (LocalDB or SQLEXPRESS)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/) or VS Code
+- SQL Server (LocalDB, Express, or full)
+- Visual Studio 2022+ or VS Code
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/InventoryManagement.git
+git clone https://github.com/<your-username>/InventoryManagement.git
 cd InventoryManagement
 ```
 
 ### 2. Configure the Database Connection
 
-Open `InventoryManagement.API/appsettings.json` and update the connection string to match your SQL Server instance:
+Edit `InventoryManagement.API/appsettings.json` and update the connection string:
 
 ```json
 {
   "ConnectionStrings": {
-    "Default": "Server=YOUR_SERVER;Database=InventoryDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
+    "Default": "Server=YOUR_SERVER;Database=InventoryDb;Trusted_Connection=True;TrustServerCertificate=True;"
   }
 }
 ```
 
-### 3. Apply EF Core Migrations
+### 3. Apply Database Migrations
 
 ```bash
 cd InventoryManagement.API
@@ -225,62 +239,58 @@ dotnet ef database update --project ../InventoryManagement.Infrastructure
 dotnet run --project InventoryManagement.API
 ```
 
-The API will be available at:
-- **HTTP**: `http://localhost:5000`
-- **Swagger UI**: `http://localhost:5000/swagger` (Development only)
+The API will start at `https://localhost:7xxx` / `http://localhost:5xxx`.  
+Swagger UI is available at: **`https://localhost:{port}/swagger`** _(Development only)_
 
 ---
 
-## 📋 Key Design Decisions
+## 📁 File Upload
 
-### ✅ Clean Architecture Layers
-Dependencies point inward — the Domain knows nothing about Infrastructure, and the Application knows nothing about how data is stored or how files are served.
+Uploaded product images are stored locally under `wwwroot/images/` with a GUID-prefixed filename to prevent naming collisions.
 
-### ✅ CQRS-Inspired Feature Folders
-Features are organized as `Commands` (write) and `Queries` (read) under the `Features/Products/` folder, making intent explicit and scalable.
+- **Allowed types:** `image/jpeg`, `image/png`
+- **Maximum size:** 2 MB
+- **Returned path example:** `/images/3f2a1b4c-d5e6-7f8a-9b0c-1d2e3f4a5b6c.jpg`
 
-### ✅ Repository Pattern
-`IProductRepository` is defined in the Application layer and implemented in Infrastructure. This makes the application testable without a real database.
-
-### ✅ Interface-Driven Services
-Both `ICacheService` and `IFileStorageService` are Application-layer contracts, so implementations (in-memory cache, local file system) can be swapped without touching business logic.
-
-### ✅ Global Exception Middleware
-`ErrorHandlingMiddleware` catches all unhandled exceptions globally and returns a consistent `{ "message": "..." }` JSON response — no leaking stack traces.
-
-### ✅ Serilog Structured Logging
-Logs are written to both the console and rolling daily files (`Logs/log-YYYYMMDD.txt`), making debugging easy in both development and production.
+To serve these files, make sure `UseStaticFiles()` is enabled (already configured in `Program.cs`).
 
 ---
 
-## 📌 What I Learned (First Clean Architecture Project)
+## 📋 Logging
 
-This project was my hands-on introduction to Clean Architecture. Key takeaways:
+Serilog is bootstrapped before the host is built (`SerilogConfig.Configure()`) and configured with two sinks:
 
-- 🧅 **Onion/Clean architecture** enforces separation of concerns at the project level, not just class level
-- 📦 **Interfaces live in Application**, not Infrastructure — this is the key inversion of dependency
-- 🔀 **CQRS** (Commands vs Queries) keeps read and write logic clean and independent
-- 🏗️ **BaseEntity** avoids repeating `Id` and `CreatedAt` across every entity
-- 🧪 **Testability** — because repositories are behind interfaces, unit testing handlers with mocks is straightforward
+| Sink | Details |
+|---|---|
+| **Console** | Real-time structured logs in the terminal |
+| **Rolling File** | Daily log files written to `Logs/log-YYYYMMDD.txt` |
+
+Log level defaults to `Information`. `Microsoft.AspNetCore` logs are filtered to `Warning` to reduce noise.
+
+---
+
+## 🧩 Key Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| **CQRS without MediatR** | Commands and Queries are manually dispatched through `ProductHandlers`, keeping the implementation lightweight without the overhead of a full MediatR pipeline |
+| **Repository Pattern** | `IProductRepository` decouples the Application layer from EF Core, making the data access layer easily replaceable and testable |
+| **Interface-driven services** | `ICacheService` and `IFileStorageService` abstractions allow swapping implementations (e.g., Redis, Azure Blob) without touching business logic |
+| **Global Error Middleware** | `ErrorHandlingMiddleware` catches all unhandled exceptions and returns a consistent JSON error envelope |
+| **Serilog early bootstrap** | Configured before `WebApplication.CreateBuilder` to capture startup errors |
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
-
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes (`git commit -m 'Add some feature'`)
-4. Push to the branch (`git push origin feature/your-feature`)
+2. Create your feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'feat: add your feature'`
+4. Push to the branch: `git push origin feature/your-feature`
 5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-<p align="center">Built with ❤️ as a first Clean Architecture project in .NET 9</p>
+This project is open-source. See the [LICENSE](LICENSE) file for details.
